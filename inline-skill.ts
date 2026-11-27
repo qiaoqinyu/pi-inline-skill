@@ -108,11 +108,12 @@ export default function (pi: ExtensionAPI): void {
 				const query = (explicit ? token.slice(SKILL_PREFIX.length) : token.slice(1)).toLowerCase();
 				if (query.includes("/")) return current.getSuggestions(lines, cursorLine, cursorCol, options);
 
+				const all = skills();
 				const matches = explicit
-					? fuzzyFilter(skills(), query, (skill) => skill.name)
+					? fuzzyFilter(all, query, (skill) => skill.name)
 					: [
-							...skills().filter((skill) => skill.name.startsWith(query)),
-							...skills().filter((skill) => !skill.name.startsWith(query) && skill.name.includes(`-${query}`)),
+							...all.filter((skill) => skill.name.startsWith(query)),
+							...all.filter((skill) => !skill.name.startsWith(query) && skill.name.includes(`-${query}`)),
 						];
 				const items: AutocompleteItem[] = matches.map((skill) => ({
 					value: `${SKILL_PREFIX}${skill.name}`,
