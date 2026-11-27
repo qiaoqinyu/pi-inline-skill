@@ -373,3 +373,10 @@ test("indentation on a continuation line is preserved", async () => {
 
 	assert.match(result.text ?? "", /<\/skill>\n\nrules:\n    -\n    - keep indent$/);
 });
+
+test("indentation on the first line is preserved", async () => {
+	const harness = createHarness();
+	const result = await harness.input("    indented /skill:alpha");
+
+	assert.match(result.text ?? "", /<\/skill>\n\n    indented$/);
+});

@@ -46,8 +46,7 @@ function dropExpandedTokens(text: string, expanded: Set<string>): string {
 			const before = whole[offset - 1] ?? "";
 			const after = whole[offset + gap.length] ?? "";
 			return before === "" || before === "\n" || after === "" || after === "\n" ? "" : " ";
-		})
-		.trim();
+		});
 }
 
 // Names of the inline skill tokens in the prompt, in the order they appear.
