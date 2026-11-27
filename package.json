@@ -2,6 +2,7 @@
   "name": "pi-inline-skill",
   "version": "1.0.0",
   "description": "Invoke pi skills anywhere in a prompt with /skill:name, with inline name completion.",
+  "license": "MIT",
   "type": "module",
   "keywords": [
     "pi-package",

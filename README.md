@@ -71,3 +71,7 @@ test/fixtures/skills/  two skills with frontmatter
 ```
 
 Requires Node 22.15+ for `module.registerHooks`, and pi 1.6.x.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
