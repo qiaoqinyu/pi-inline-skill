@@ -34,6 +34,15 @@ function skillBlock(skill: SkillInfo): string {
 	return `<skill name="${skill.name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${body}\n</skill>`;
 }
 
+// Drop the tokens that expanded into a block, keeping unknown names and paths in the prompt.
+// Runs of spaces left behind are collapsed; the prompt is otherwise untouched.
+function dropExpandedTokens(text: string, expanded: Set<string>): string {
+	return text
+		.replace(INLINE_SKILL, (token, name: string) => (expanded.has(name) ? "" : token))
+		.replace(/[ \t]{2,}/g, " ")
+		.trim();
+}
+
 export default function (pi: ExtensionAPI): void {
 	pi.on("input", (event, ctx) => {
 		if (event.source === "extension") return { action: "continue" };
@@ -46,17 +55,20 @@ export default function (pi: ExtensionAPI): void {
 		// The transformed text starts with `<skill`, so pi's built-in expansion skips it.
 		const skills = new Map(listSkills(pi).map((skill) => [skill.name, skill]));
 		const blocks: string[] = [];
+		const expanded = new Set<string>();
 		for (const name of names) {
 			const skill = skills.get(name);
 			if (!skill) continue;
 			try {
 				blocks.push(skillBlock(skill));
+				expanded.add(name);
 			} catch (err) {
 				ctx.ui.notify(`inline-skill: cannot read ${skill.filePath}: ${err instanceof Error ? err.message : String(err)}`, "error");
 			}
 		}
 		if (blocks.length === 0) return { action: "continue" };
-		return { action: "transform", text: `${blocks.join("\n\n")}\n\n${event.text}` };
+		const prompt = dropExpandedTokens(event.text, expanded);
+		return { action: "transform", text: prompt ? `${blocks.join("\n\n")}\n\n${prompt}` : blocks.join("\n\n") };
 	});
 
 	pi.on("session_start", (_event, ctx) => {
