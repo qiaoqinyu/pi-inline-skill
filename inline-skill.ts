@@ -13,6 +13,7 @@ const SKILL_PREFIX = "/skill:";
 // so `调用/skill:x` and `(/skill:x` are inline tokens.
 const BOUNDARY = String.raw`(?<![\p{Script=Latin}\p{N}_./-])`;
 const INLINE_SKILL = new RegExp(String.raw`${BOUNDARY}\/skill:([a-z0-9][a-z0-9-]*)`, "gu");
+// `matchAll` clones this regex, so its `lastIndex` never advances; do not use `.test()`/`.exec()`.
 const TOKEN_BEFORE_CURSOR = new RegExp(String.raw`${BOUNDARY}(\/[^\s]*)$`, "u");
 
 type SkillInfo = { name: string; description: string; filePath: string; baseDir: string };
@@ -44,6 +45,16 @@ function dropExpandedTokens(text: string, expanded: Set<string>): string {
 		.trim();
 }
 
+// Names of the inline skill tokens in the prompt, in the order they appear.
+function inlineSkillNames(text: string): Set<string> {
+	const names = new Set<string>();
+	for (const match of text.matchAll(INLINE_SKILL)) {
+		const name = match[1];
+		if (name) names.add(name);
+	}
+	return names;
+}
+
 export default function (pi: ExtensionAPI): void {
 	// Read once per session: the list is fixed until pi reloads skills, and calling into pi on every
 	// keystroke and prompt is wasted work that also fails once the session behind pi is replaced.
@@ -52,7 +63,7 @@ export default function (pi: ExtensionAPI): void {
 
 	pi.on("input", (event, ctx) => {
 		if (event.source === "extension") return { action: "continue" };
-		const names = new Set([...event.text.matchAll(INLINE_SKILL)].map((match) => match[1]));
+		const names = inlineSkillNames(event.text);
 		// A single leading token is pi's own `/skill:name args` form; leave it to the built-in.
 		if (names.size === 0 || (names.size === 1 && event.text.startsWith(SKILL_PREFIX))) {
 			return { action: "continue" };
@@ -74,6 +85,8 @@ export default function (pi: ExtensionAPI): void {
 		}
 		if (blocks.length === 0) return { action: "continue" };
 		const prompt = dropExpandedTokens(event.text, expanded);
+		// Two or more skills reach the model as stacked blocks, but pi's transcript renderer draws only
+		// the first as a skill card; the rest show as plain user text. Model input is unaffected.
 		return { action: "transform", text: prompt ? `${blocks.join("\n\n")}\n\n${prompt}` : blocks.join("\n\n") };
 	});
 

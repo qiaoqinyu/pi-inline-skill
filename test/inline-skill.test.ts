@@ -268,3 +268,83 @@ test("prompts keep expanding after the session behind pi was replaced", async ()
 
 	assert.match(result.text ?? "", skillBlock("alpha"));
 });
+
+// ---------------------------------------------------------------------------
+// Autocomplete: which items are offered, and what applying one does
+// ---------------------------------------------------------------------------
+
+test("explicit /skill: search matches by subsequence", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["why /skill:bt"], 0, 13);
+
+	assert.deepEqual(values(suggestions), ["/skill:beta"]);
+});
+
+test("explicit /skill: search with no match falls back to the built-in menu", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	await harness.suggest(["why /skill:zzz"], 0, 15);
+
+	assert.equal(harness.baseRequests.length, 1);
+});
+
+test("bare slash completion offers skills first, then paths", async () => {
+	const harness = createHarness({ baseSuggestions: [{ value: "/opt", label: "/opt" }] });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["见 /"], 0, 3);
+
+	assert.deepEqual(values(suggestions), ["/skill:alpha", "/skill:beta", "/opt"]);
+});
+
+test("a token with a second slash stays a path", async () => {
+	const harness = createHarness({ baseSuggestions: [{ value: "/etc/hosts", label: "/etc/hosts" }] });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["cat /etc/ho"], 0, 11);
+
+	assert.deepEqual(values(suggestions), ["/etc/hosts"]);
+	assert.equal(harness.baseRequests.length, 1);
+});
+
+test("@-file completion is left to the built-in provider", async () => {
+	const harness = createHarness({ baseSuggestions: [{ value: "@src/foo.ts", label: "@src/foo.ts" }] });
+	await harness.startSession();
+
+	const tokens = ["see @src/fo", "see @src/"];
+
+	const seen = await Promise.all(tokens.map((line) => harness.suggest([line], 0, line.length)));
+
+	assert.equal(harness.baseRequests.length, 2);
+	assert.deepEqual(seen.map(values), [["@src/foo.ts"], ["@src/foo.ts"]]);
+});
+
+test("applying a skill completion replaces the token and leaves one trailing space", async () => {
+	const harness = createHarness();
+	await harness.startSession();
+
+	const applied = harness.apply(["see /al more"], 0, 7, { value: "/skill:alpha", label: "alpha" }, "/al");
+
+	assert.deepEqual(applied, { lines: ["see /skill:alpha more"], cursorLine: 0, cursorCol: 17 });
+});
+
+test("applying a skill completion at the end of a line appends nothing extra", async () => {
+	const harness = createHarness();
+	await harness.startSession();
+
+	const applied = harness.apply(["first", "why /al"], 1, 7, { value: "/skill:alpha", label: "alpha" }, "/al");
+
+	assert.deepEqual(applied, { lines: ["first", "why /skill:alpha "], cursorLine: 1, cursorCol: 17 });
+});
+
+test("applying a path completion is left to the built-in provider", async () => {
+	const harness = createHarness();
+	await harness.startSession();
+
+	const applied = harness.apply(["see /op more"], 0, 7, { value: "/opt", label: "/opt" }, "/op");
+
+	assert.deepEqual(applied, { lines: ["see /opt more"], cursorLine: 0, cursorCol: 8 });
+});

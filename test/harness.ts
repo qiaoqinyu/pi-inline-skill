@@ -23,6 +23,25 @@ export function fixtureSkill(name: string, overrides: Partial<SkillFixture> = {}
 
 export type BaseSuggestion = { value: string; label: string; description?: string };
 
+type AppliedCompletion = { lines: string[]; cursorLine: number; cursorCol: number };
+
+/** The autocomplete contract the extension wraps and exposes. */
+type Provider = {
+	getSuggestions(
+		lines: string[],
+		cursorLine: number,
+		cursorCol: number,
+		options: { signal: AbortSignal },
+	): Promise<{ prefix: string; items: BaseSuggestion[] } | null>;
+	applyCompletion(
+		lines: string[],
+		cursorLine: number,
+		cursorCol: number,
+		item: BaseSuggestion,
+		prefix: string,
+	): AppliedCompletion;
+};
+
 export type Harness = {
 	/** Send a prompt through the `input` seam. */
 	input(text: string, source?: "interactive" | "rpc" | "extension"): Promise<{ action: string; text?: string }>;
@@ -107,27 +126,11 @@ export function createHarness(options: HarnessOptions = {}): Harness {
 		},
 	};
 
-	let provider:
-		| {
-				getSuggestions: (
-					lines: string[],
-					cursorLine: number,
-					cursorCol: number,
-					options: { signal: AbortSignal },
-				) => Promise<{ prefix: string; items: BaseSuggestion[] } | null>;
-				applyCompletion: (
-					lines: string[],
-					cursorLine: number,
-					cursorCol: number,
-					item: BaseSuggestion,
-					prefix: string,
-				) => { lines: string[]; cursorLine: number; cursorCol: number };
-		  }
-		| undefined;
+	let provider: Provider | undefined;
 
 	// The built-in provider: a plain prefix match over the configured items, like pi's
 	// command/path menu that the extension wraps.
-	const current = {
+	const current: Provider & { shouldTriggerFileCompletion: () => boolean } = {
 		getSuggestions: async (lines: string[], cursorLine: number, cursorCol: number) => {
 			harness.baseRequests.push({ lines, cursorLine, cursorCol });
 			const before = (lines[cursorLine] ?? "").slice(0, cursorCol);
@@ -150,7 +153,7 @@ export function createHarness(options: HarnessOptions = {}): Harness {
 			notify: (message: string, type?: string) => {
 				harness.notifications.push({ message, type });
 			},
-			addAutocompleteProvider: (factory: (current: typeof current) => NonNullable<typeof provider>) => {
+			addAutocompleteProvider: (factory: (current: Provider) => Provider) => {
 				provider = factory(current);
 			},
 		},
