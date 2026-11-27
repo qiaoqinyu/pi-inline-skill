@@ -76,8 +76,12 @@ export default function (pi: ExtensionAPI): void {
 			async getSuggestions(lines, cursorLine, cursorCol, options) {
 				const beforeCursor = (lines[cursorLine] ?? "").slice(0, cursorCol);
 				const token = beforeCursor.match(TOKEN_BEFORE_CURSOR)?.[1];
+				// Only a token at the very start of the prompt belongs to the built-in command menu.
+				// A slash token on a later line is inline text, so it searches skills.
+				const startsPrompt =
+					beforeCursor.trim() === token && lines.slice(0, cursorLine).every((line) => line.trim() === "");
 				// Leading slash commands use the built-in menu.
-				if (token === undefined || beforeCursor.trim() === token) {
+				if (token === undefined || startsPrompt) {
 					return current.getSuggestions(lines, cursorLine, cursorCol, options);
 				}
 				const explicit = token.startsWith(SKILL_PREFIX);

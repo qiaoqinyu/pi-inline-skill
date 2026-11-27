@@ -127,3 +127,62 @@ test("a prompt with no skill token passes through untouched", async () => {
 
 	assert.equal(result.action, "continue");
 });
+
+// ---------------------------------------------------------------------------
+// Autocomplete: which token the menu completes
+// ---------------------------------------------------------------------------
+
+const commandMenu = [
+	{ value: "/model", label: "model", description: "builtin" },
+	{ value: "/ml", label: "ml", description: "builtin" },
+];
+
+const values = (suggestions: { items: { value: string }[] } | null) =>
+	(suggestions?.items ?? []).map((item) => item.value);
+
+test("a slash token at the very start of the prompt keeps the built-in command menu", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["/m"], 0, 2);
+
+	assert.equal(harness.baseRequests.length, 1, "the built-in provider should be asked");
+	assert.deepEqual(values(suggestions), ["/model", "/ml"]);
+});
+
+test("leading whitespace on the first line still keeps the built-in command menu", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["  /m"], 0, 4);
+
+	assert.equal(harness.baseRequests.length, 1);
+	assert.deepEqual(values(suggestions), ["/model", "/ml"]);
+});
+
+test("empty lines before the token still keep the built-in command menu", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	await harness.suggest(["", "  /m"], 1, 4);
+
+	assert.equal(harness.baseRequests.length, 1);
+});
+
+test("a slash token on a later line searches skills instead of the command menu", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["first line", "/al"], 1, 3);
+
+	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
+});
+
+test("a slash token mid-line searches skills", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["why /al"], 0, 7);
+
+	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
+});
