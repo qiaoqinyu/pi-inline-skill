@@ -348,3 +348,28 @@ test("applying a path completion is left to the built-in provider", async () => 
 
 	assert.deepEqual(applied, { lines: ["see /opt more"], cursorLine: 0, cursorCol: 8 });
 });
+
+// ---------------------------------------------------------------------------
+// Prompt text is otherwise left alone
+// ---------------------------------------------------------------------------
+
+test("removing a token leaves exactly one space between its neighbours", async () => {
+	const harness = createHarness();
+	const result = await harness.input("please   /skill:alpha   review");
+
+	assert.match(result.text ?? "", /<\/skill>\n\nplease review$/);
+});
+
+test("whitespace elsewhere in the prompt is preserved", async () => {
+	const harness = createHarness();
+	const result = await harness.input("col1    col2\nkey     /skill:alpha");
+
+	assert.match(result.text ?? "", /<\/skill>\n\ncol1    col2\nkey$/);
+});
+
+test("indentation on a continuation line is preserved", async () => {
+	const harness = createHarness();
+	const result = await harness.input("rules:\n    - /skill:alpha\n    - keep indent");
+
+	assert.match(result.text ?? "", /<\/skill>\n\nrules:\n    -\n    - keep indent$/);
+});

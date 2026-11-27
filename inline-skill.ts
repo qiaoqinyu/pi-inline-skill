@@ -37,11 +37,16 @@ function skillBlock(skill: SkillInfo): string {
 }
 
 // Drop the tokens that expanded into a block, keeping unknown names and paths in the prompt.
-// Runs of spaces left behind are collapsed; the prompt is otherwise untouched.
+// Only the gap where a token stood is rewritten, so pasted code and tables keep their spacing.
+const REMOVED = "\u0000"; // sentinel: a typed or pasted prompt cannot contain it
 function dropExpandedTokens(text: string, expanded: Set<string>): string {
 	return text
-		.replace(INLINE_SKILL, (token, name: string) => (expanded.has(name) ? "" : token))
-		.replace(/[ \t]{2,}/g, " ")
+		.replace(INLINE_SKILL, (token, name: string) => (expanded.has(name) ? REMOVED : token))
+		.replace(/[ \t]*\u0000[ \t]*/g, (gap: string, offset: number, whole: string) => {
+			const before = whole[offset - 1] ?? "";
+			const after = whole[offset + gap.length] ?? "";
+			return before === "" || before === "\n" || after === "" || after === "\n" ? "" : " ";
+		})
 		.trim();
 }
 

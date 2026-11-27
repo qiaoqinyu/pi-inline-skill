@@ -55,7 +55,7 @@ Completion, after pressing <kbd>Tab</kbd> following `/`, `/ab`, or `/skill:ab`:
 
 ```bash
 npm install       # types only: the two @earendil-works packages are peers
-npm test          # 34 tests over both public seams
+npm test          # covers both public seams
 npm run typecheck
 ```
 
