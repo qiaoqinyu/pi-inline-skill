@@ -225,3 +225,46 @@ test("a token after CJK text is completed", async () => {
 
 	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
 });
+
+// ---------------------------------------------------------------------------
+// Skill list lifecycle
+// ---------------------------------------------------------------------------
+
+test("the skill list is read once per session, not per keystroke or prompt", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+	await harness.input("use /skill:alpha");
+	await harness.input("use /skill:alpha again");
+	await harness.suggest(["why /al"], 0, 7);
+	await harness.suggest(["why /skill:b"], 0, 13);
+
+	assert.equal(harness.getCommandsCalls, 1);
+});
+
+test("a new session re-reads the skill list", async () => {
+	const harness = createHarness();
+	await harness.startSession("startup");
+	await harness.startSession("reload");
+
+	assert.equal(harness.getCommandsCalls, 2);
+});
+
+test("completion keeps working after the session behind pi was replaced", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+	harness.invalidatePi();
+
+	const suggestions = await harness.suggest(["why /al"], 0, 7);
+
+	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
+});
+
+test("prompts keep expanding after the session behind pi was replaced", async () => {
+	const harness = createHarness();
+	await harness.startSession();
+	harness.invalidatePi();
+
+	const result = await harness.input("why /skill:alpha");
+
+	assert.match(result.text ?? "", skillBlock("alpha"));
+});

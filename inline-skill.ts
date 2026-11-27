@@ -45,6 +45,11 @@ function dropExpandedTokens(text: string, expanded: Set<string>): string {
 }
 
 export default function (pi: ExtensionAPI): void {
+	// Read once per session: the list is fixed until pi reloads skills, and calling into pi on every
+	// keystroke and prompt is wasted work that also fails once the session behind pi is replaced.
+	let skillCache: SkillInfo[] | undefined;
+	const skills = () => (skillCache ??= listSkills(pi));
+
 	pi.on("input", (event, ctx) => {
 		if (event.source === "extension") return { action: "continue" };
 		const names = new Set([...event.text.matchAll(INLINE_SKILL)].map((match) => match[1]));
@@ -54,11 +59,11 @@ export default function (pi: ExtensionAPI): void {
 		}
 
 		// The transformed text starts with `<skill`, so pi's built-in expansion skips it.
-		const skills = new Map(listSkills(pi).map((skill) => [skill.name, skill]));
+		const byName = new Map(skills().map((skill) => [skill.name, skill]));
 		const blocks: string[] = [];
 		const expanded = new Set<string>();
 		for (const name of names) {
-			const skill = skills.get(name);
+			const skill = byName.get(name);
 			if (!skill) continue;
 			try {
 				blocks.push(skillBlock(skill));
@@ -73,6 +78,7 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
+		skillCache = listSkills(pi);
 		ctx.ui.addAutocompleteProvider((current) => ({
 			async getSuggestions(lines, cursorLine, cursorCol, options) {
 				const beforeCursor = (lines[cursorLine] ?? "").slice(0, cursorCol);
@@ -89,12 +95,11 @@ export default function (pi: ExtensionAPI): void {
 				const query = (explicit ? token.slice(SKILL_PREFIX.length) : token.slice(1)).toLowerCase();
 				if (query.includes("/")) return current.getSuggestions(lines, cursorLine, cursorCol, options);
 
-				const skills = listSkills(pi);
 				const matches = explicit
-					? fuzzyFilter(skills, query, (skill) => skill.name)
+					? fuzzyFilter(skills(), query, (skill) => skill.name)
 					: [
-							...skills.filter((skill) => skill.name.startsWith(query)),
-							...skills.filter((skill) => !skill.name.startsWith(query) && skill.name.includes(`-${query}`)),
+							...skills().filter((skill) => skill.name.startsWith(query)),
+							...skills().filter((skill) => !skill.name.startsWith(query) && skill.name.includes(`-${query}`)),
 						];
 				const items: AutocompleteItem[] = matches.map((skill) => ({
 					value: `${SKILL_PREFIX}${skill.name}`,
