@@ -45,7 +45,11 @@ function dropExpandedTokens(text: string, expanded: Set<string>): string {
 		.replace(/[ \t]*\u0000[ \t]*/g, (gap: string, offset: number, whole: string) => {
 			const before = whole[offset - 1] ?? "";
 			const after = whole[offset + gap.length] ?? "";
-			return before === "" || before === "\n" || after === "" || after === "\n" ? "" : " ";
+			// No space at the text's edge or before a line break, nor before punctuation that already
+			// separates words: `read /skill:alpha, then` becomes `read, then`.
+			const atEdge =
+				before === "" || before === "\n" || before === "\r" || after === "" || after === "\n" || after === "\r";
+			return atEdge || ",;:!?)]}".includes(after) ? "" : " ";
 		});
 }
 

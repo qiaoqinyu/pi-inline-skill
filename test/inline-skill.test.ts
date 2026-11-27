@@ -380,3 +380,39 @@ test("indentation on the first line is preserved", async () => {
 
 	assert.match(result.text ?? "", /<\/skill>\n\n    indented$/);
 });
+
+// ---------------------------------------------------------------------------
+// Edge cases
+// ---------------------------------------------------------------------------
+
+test("with no skills installed, prompts and completion pass through", async () => {
+	const harness = createHarness({ skills: [] });
+	await harness.startSession();
+
+	assert.equal((await harness.input("use /skill:alpha")).action, "continue");
+	assert.equal(await harness.suggest(["why /al"], 0, 7), null);
+});
+
+test("a token followed by punctuation expands and keeps the punctuation", async () => {
+	const harness = createHarness();
+	const result = await harness.input("read /skill:alpha, then stop");
+
+	assert.match(result.text ?? "", /<\/skill>\n\nread, then stop$/);
+});
+
+test("a CRLF prompt loses the gap without leaving a trailing space", async () => {
+	const harness = createHarness();
+	const result = await harness.input("rules:\r\n  - /skill:alpha\r\n  - keep");
+
+	assert.match(result.text ?? "", /<\/skill>\n\nrules:\r\n  -\r\n  - keep$/);
+});
+
+test("a long prompt with many tokens expands each skill once", async () => {
+	const harness = createHarness();
+	const text = Array.from({ length: 200 }, (_, index) => `line ${index} /skill:${index % 2 === 0 ? "alpha" : "beta"}`).join("\n");
+	const result = await harness.input(text);
+
+	assert.equal((result.text ?? "").match(/<skill name="alpha"/g)?.length, 1);
+	assert.equal((result.text ?? "").match(/<skill name="beta"/g)?.length, 1);
+	assert.equal((result.text ?? "").match(/\/skill:/g), null);
+});
