@@ -8,9 +8,10 @@ import { type ExtensionAPI, stripFrontmatter } from "@earendil-works/pi-coding-a
 import { type AutocompleteItem, fuzzyFilter } from "@earendil-works/pi-tui";
 
 const SKILL_PREFIX = "/skill:";
-// A token must start the text or follow whitespace or CJK text/punctuation (`调用/skill:x`),
-// so paths such as /home/x or foo/skill:x are never matched.
-const BOUNDARY = String.raw`(?<=^|[\s\p{Script=Han}\u3000-\u303f\uff00-\uffef])`;
+// A token starts the text or follows punctuation, but never continues a Latin word, a digit, or a
+// path (`foo/skill:x`, `/opt/skill:x`, `./skill:x`). CJK text and punctuation both count as a start,
+// so `调用/skill:x` and `(/skill:x` are inline tokens.
+const BOUNDARY = String.raw`(?<![\p{Script=Latin}\p{N}_./-])`;
 const INLINE_SKILL = new RegExp(String.raw`${BOUNDARY}\/skill:([a-z0-9][a-z0-9-]*)`, "gu");
 const TOKEN_BEFORE_CURSOR = new RegExp(String.raw`${BOUNDARY}(\/[^\s]*)$`, "u");
 

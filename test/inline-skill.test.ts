@@ -186,3 +186,42 @@ test("a slash token mid-line searches skills", async () => {
 
 	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
 });
+
+// ---------------------------------------------------------------------------
+// Autocomplete: which punctuation may sit before the token
+// ---------------------------------------------------------------------------
+
+test("an inline token after ASCII punctuation is expanded", async () => {
+	const harness = createHarness();
+	for (const text of ["(/skill:alpha)", '"/skill:alpha"', "[/skill:alpha]", "—/skill:alpha"]) {
+		const result = await harness.input(text);
+		assert.equal(result.action, "transform", text);
+		assert.equal((result.text ?? "").match(/<skill name="alpha"/g)?.length, 1, text);
+	}
+});
+
+test("a token that continues a word or a path is not expanded", async () => {
+	const harness = createHarness();
+	for (const text of ["foo/skill:alpha", "/opt/skill:alpha", "v2/skill:alpha", "./skill:alpha"]) {
+		const result = await harness.input(text);
+		assert.equal(result.action, "continue", text);
+	}
+});
+
+test("a token after punctuation is completed", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["see (/al"], 0, 8);
+
+	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
+});
+
+test("a token after CJK text is completed", async () => {
+	const harness = createHarness({ baseSuggestions: commandMenu });
+	await harness.startSession();
+
+	const suggestions = await harness.suggest(["调用/al"], 0, 5);
+
+	assert.deepEqual(values(suggestions), ["/skill:alpha"]);
+});
